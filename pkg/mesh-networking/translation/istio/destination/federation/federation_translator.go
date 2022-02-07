@@ -212,16 +212,12 @@ func (t *translator) translateRemoteServiceEntryTemplate(
 		}
 
 		for _, externalAddress := range appliedIngressGateway.ExternalAddresses {
-			for _, endpointSubset := range kubeService.EndpointSubsets {
-				for _, endpoint := range endpointSubset.Endpoints {
-					workloadEntry := &networkingv1alpha3spec.WorkloadEntry{
-						Address: externalAddress,
-						Ports:   workloadEntryPortMapping,
-						Labels:  endpoint.Labels,
-					}
-					workloadEntries = append(workloadEntries, workloadEntry)
-				}
-			}
+			workloadEntries = append(workloadEntries, &networkingv1alpha3spec.WorkloadEntry{
+				Address: externalAddress,
+				Ports:   workloadEntryPortMapping,
+				// using the destination labels
+				Labels:  kubeService.Labels,
+			})
 		}
 	}
 
