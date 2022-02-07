@@ -216,7 +216,7 @@ func (t *translator) translateRemoteServiceEntryTemplate(
 				Address: externalAddress,
 				Ports:   workloadEntryPortMapping,
 				// using the destination labels
-				Labels:  kubeService.Labels,
+				Labels: kubeService.Labels,
 			})
 		}
 	}
