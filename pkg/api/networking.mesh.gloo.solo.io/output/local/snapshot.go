@@ -10,6 +10,8 @@ import (
 	"encoding/json"
 	"sort"
 
+	snapshotutils "github.com/solo-io/skv2/contrib/pkg/snapshot"
+
 	"github.com/solo-io/skv2/pkg/multicluster"
 	"github.com/solo-io/skv2/pkg/resource"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -26,13 +28,12 @@ import (
 
 // this error can occur if constructing a Partitioned Snapshot from a resource
 // that is missing the partition label
-var MissingRequiredLabelError = func(labelKey, resourceKind string, obj ezkube.ResourceId) error {
-	return eris.Errorf("expected label %v not on labels of %v %v", labelKey, resourceKind, sets.Key(obj))
+var MissingRequiredLabelError = func(labelKey string, gvk schema.GroupVersionKind, obj ezkube.ResourceId) error {
+	return eris.Errorf("expected label %v not on labels of %v %v", labelKey, gvk.String(), sets.Key(obj))
 }
 
 // SnapshotGVKs is a list of the GVKs included in this snapshot
 var SnapshotGVKs = []schema.GroupVersionKind{
-
 	schema.GroupVersionKind{
 		Group:   "",
 		Version: "v1",
@@ -47,10 +48,10 @@ type Snapshot interface {
 	Secrets() []LabeledSecretSet
 
 	// apply the snapshot to the local cluster, garbage collecting stale resources
-	ApplyLocalCluster(ctx context.Context, clusterClient client.Client, errHandler output.ErrorHandler)
+	ApplyLocalCluster(ctx context.Context, clusterClient client.Client, opts output.OutputOpts)
 
 	// apply resources from the snapshot across multiple clusters, garbage collecting stale resources
-	ApplyMultiCluster(ctx context.Context, multiClusterClient multicluster.Client, errHandler output.ErrorHandler)
+	ApplyMultiCluster(ctx context.Context, multiClusterClient multicluster.Client, opts output.OutputOpts)
 
 	// serialize the entire snapshot as JSON
 	MarshalJSON() ([]byte, error)
@@ -130,7 +131,7 @@ func NewSinglePartitionedSnapshot(
 }
 
 // apply the desired resources to the cluster state; remove stale resources where necessary
-func (s *snapshot) ApplyLocalCluster(ctx context.Context, cli client.Client, errHandler output.ErrorHandler) {
+func (s *snapshot) ApplyLocalCluster(ctx context.Context, clusterClient client.Client, opts output.OutputOpts) {
 	var genericLists []output.ResourceList
 
 	for _, outputSet := range s.secrets {
@@ -140,11 +141,11 @@ func (s *snapshot) ApplyLocalCluster(ctx context.Context, cli client.Client, err
 	output.Snapshot{
 		Name:        s.name,
 		ListsToSync: genericLists,
-	}.SyncLocalCluster(ctx, cli, errHandler)
+	}.SyncLocalCluster(ctx, clusterClient, opts)
 }
 
 // apply the desired resources to multiple cluster states; remove stale resources where necessary
-func (s *snapshot) ApplyMultiCluster(ctx context.Context, multiClusterClient multicluster.Client, errHandler output.ErrorHandler) {
+func (s *snapshot) ApplyMultiCluster(ctx context.Context, multiClusterClient multicluster.Client, opts output.OutputOpts) {
 	var genericLists []output.ResourceList
 
 	for _, outputSet := range s.secrets {
@@ -155,7 +156,7 @@ func (s *snapshot) ApplyMultiCluster(ctx context.Context, multiClusterClient mul
 		Name:        s.name,
 		Clusters:    s.clusters,
 		ListsToSync: genericLists,
-	}.SyncMultiCluster(ctx, multiClusterClient, errHandler)
+	}.SyncMultiCluster(ctx, multiClusterClient, opts)
 }
 
 func (s *snapshot) Generic() resource.ClusterSnapshot {
@@ -187,12 +188,17 @@ func partitionSecretsByLabel(labelKey string, set v1_sets.SecretSet) ([]LabeledS
 	setsByLabel := map[string]v1_sets.SecretSet{}
 
 	for _, obj := range set.List() {
+		objGVK := schema.GroupVersionKind{
+			Group:   "",
+			Version: "v1",
+			Kind:    "Secret",
+		}
 		if obj.Labels == nil {
-			return nil, MissingRequiredLabelError(labelKey, "Secret", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 		labelValue := obj.Labels[labelKey]
 		if labelValue == "" {
-			return nil, MissingRequiredLabelError(labelKey, "Secret", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 
 		setForValue, ok := setsByLabel[labelValue]
@@ -236,7 +242,11 @@ func (s snapshot) MarshalJSON() ([]byte, error) {
 
 	secretSet := v1_sets.NewSecretSet()
 	for _, set := range s.secrets {
-		secretSet = secretSet.Union(set.Set())
+		for _, obj := range set.Set().UnsortedList() {
+			// redact secret data from the snapshot
+			obj := snapshotutils.RedactSecretData(obj)
+			secretSet.Insert(obj.(*v1.Secret))
+		}
 	}
 	snapshotMap["secrets"] = secretSet.List()
 
@@ -307,9 +317,13 @@ func (l labeledSecretSet) Generic() output.ResourceList {
 	}
 
 	return output.ResourceList{
-		Resources:    desiredResources,
-		ListFunc:     listFunc,
-		ResourceKind: "Secret",
+		Resources: desiredResources,
+		ListFunc:  listFunc,
+		GVK: schema.GroupVersionKind{
+			Group:   "",
+			Version: "v1",
+			Kind:    "Secret",
+		},
 	}
 }
 

@@ -10,6 +10,8 @@ import (
 	"encoding/json"
 	"sort"
 
+	snapshotutils "github.com/solo-io/skv2/contrib/pkg/snapshot"
+
 	"github.com/solo-io/skv2/pkg/multicluster"
 	"github.com/solo-io/skv2/pkg/resource"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -32,25 +34,22 @@ import (
 
 // this error can occur if constructing a Partitioned Snapshot from a resource
 // that is missing the partition label
-var MissingRequiredLabelError = func(labelKey, resourceKind string, obj ezkube.ResourceId) error {
-	return eris.Errorf("expected label %v not on labels of %v %v", labelKey, resourceKind, sets.Key(obj))
+var MissingRequiredLabelError = func(labelKey string, gvk schema.GroupVersionKind, obj ezkube.ResourceId) error {
+	return eris.Errorf("expected label %v not on labels of %v %v", labelKey, gvk.String(), sets.Key(obj))
 }
 
 // SnapshotGVKs is a list of the GVKs included in this snapshot
 var SnapshotGVKs = []schema.GroupVersionKind{
-
 	schema.GroupVersionKind{
 		Group:   "split.smi-spec.io",
 		Version: "v1alpha2",
 		Kind:    "TrafficSplit",
 	},
-
 	schema.GroupVersionKind{
 		Group:   "access.smi-spec.io",
 		Version: "v1alpha2",
 		Kind:    "TrafficTarget",
 	},
-
 	schema.GroupVersionKind{
 		Group:   "specs.smi-spec.io",
 		Version: "v1alpha3",
@@ -69,10 +68,10 @@ type Snapshot interface {
 	HTTPRouteGroups() []LabeledHTTPRouteGroupSet
 
 	// apply the snapshot to the local cluster, garbage collecting stale resources
-	ApplyLocalCluster(ctx context.Context, clusterClient client.Client, errHandler output.ErrorHandler)
+	ApplyLocalCluster(ctx context.Context, clusterClient client.Client, opts output.OutputOpts)
 
 	// apply resources from the snapshot across multiple clusters, garbage collecting stale resources
-	ApplyMultiCluster(ctx context.Context, multiClusterClient multicluster.Client, errHandler output.ErrorHandler)
+	ApplyMultiCluster(ctx context.Context, multiClusterClient multicluster.Client, opts output.OutputOpts)
 
 	// serialize the entire snapshot as JSON
 	MarshalJSON() ([]byte, error)
@@ -186,7 +185,7 @@ func NewSinglePartitionedSnapshot(
 }
 
 // apply the desired resources to the cluster state; remove stale resources where necessary
-func (s *snapshot) ApplyLocalCluster(ctx context.Context, cli client.Client, errHandler output.ErrorHandler) {
+func (s *snapshot) ApplyLocalCluster(ctx context.Context, clusterClient client.Client, opts output.OutputOpts) {
 	var genericLists []output.ResourceList
 
 	for _, outputSet := range s.trafficSplits {
@@ -202,11 +201,11 @@ func (s *snapshot) ApplyLocalCluster(ctx context.Context, cli client.Client, err
 	output.Snapshot{
 		Name:        s.name,
 		ListsToSync: genericLists,
-	}.SyncLocalCluster(ctx, cli, errHandler)
+	}.SyncLocalCluster(ctx, clusterClient, opts)
 }
 
 // apply the desired resources to multiple cluster states; remove stale resources where necessary
-func (s *snapshot) ApplyMultiCluster(ctx context.Context, multiClusterClient multicluster.Client, errHandler output.ErrorHandler) {
+func (s *snapshot) ApplyMultiCluster(ctx context.Context, multiClusterClient multicluster.Client, opts output.OutputOpts) {
 	var genericLists []output.ResourceList
 
 	for _, outputSet := range s.trafficSplits {
@@ -223,7 +222,7 @@ func (s *snapshot) ApplyMultiCluster(ctx context.Context, multiClusterClient mul
 		Name:        s.name,
 		Clusters:    s.clusters,
 		ListsToSync: genericLists,
-	}.SyncMultiCluster(ctx, multiClusterClient, errHandler)
+	}.SyncMultiCluster(ctx, multiClusterClient, opts)
 }
 
 func (s *snapshot) Generic() resource.ClusterSnapshot {
@@ -279,12 +278,17 @@ func partitionTrafficSplitsByLabel(labelKey string, set split_smi_spec_io_v1alph
 	setsByLabel := map[string]split_smi_spec_io_v1alpha2_sets.TrafficSplitSet{}
 
 	for _, obj := range set.List() {
+		objGVK := schema.GroupVersionKind{
+			Group:   "split.smi-spec.io",
+			Version: "v1alpha2",
+			Kind:    "TrafficSplit",
+		}
 		if obj.Labels == nil {
-			return nil, MissingRequiredLabelError(labelKey, "TrafficSplit", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 		labelValue := obj.Labels[labelKey]
 		if labelValue == "" {
-			return nil, MissingRequiredLabelError(labelKey, "TrafficSplit", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 
 		setForValue, ok := setsByLabel[labelValue]
@@ -323,12 +327,17 @@ func partitionTrafficTargetsByLabel(labelKey string, set access_smi_spec_io_v1al
 	setsByLabel := map[string]access_smi_spec_io_v1alpha2_sets.TrafficTargetSet{}
 
 	for _, obj := range set.List() {
+		objGVK := schema.GroupVersionKind{
+			Group:   "access.smi-spec.io",
+			Version: "v1alpha2",
+			Kind:    "TrafficTarget",
+		}
 		if obj.Labels == nil {
-			return nil, MissingRequiredLabelError(labelKey, "TrafficTarget", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 		labelValue := obj.Labels[labelKey]
 		if labelValue == "" {
-			return nil, MissingRequiredLabelError(labelKey, "TrafficTarget", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 
 		setForValue, ok := setsByLabel[labelValue]
@@ -367,12 +376,17 @@ func partitionHTTPRouteGroupsByLabel(labelKey string, set specs_smi_spec_io_v1al
 	setsByLabel := map[string]specs_smi_spec_io_v1alpha3_sets.HTTPRouteGroupSet{}
 
 	for _, obj := range set.List() {
+		objGVK := schema.GroupVersionKind{
+			Group:   "specs.smi-spec.io",
+			Version: "v1alpha3",
+			Kind:    "HTTPRouteGroup",
+		}
 		if obj.Labels == nil {
-			return nil, MissingRequiredLabelError(labelKey, "HTTPRouteGroup", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 		labelValue := obj.Labels[labelKey]
 		if labelValue == "" {
-			return nil, MissingRequiredLabelError(labelKey, "HTTPRouteGroup", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 
 		setForValue, ok := setsByLabel[labelValue]
@@ -424,19 +438,31 @@ func (s snapshot) MarshalJSON() ([]byte, error) {
 
 	trafficSplitSet := split_smi_spec_io_v1alpha2_sets.NewTrafficSplitSet()
 	for _, set := range s.trafficSplits {
-		trafficSplitSet = trafficSplitSet.Union(set.Set())
+		for _, obj := range set.Set().UnsortedList() {
+			// redact secret data from the snapshot
+			obj := snapshotutils.RedactSecretData(obj)
+			trafficSplitSet.Insert(obj.(*split_smi_spec_io_v1alpha2.TrafficSplit))
+		}
 	}
 	snapshotMap["trafficSplits"] = trafficSplitSet.List()
 
 	trafficTargetSet := access_smi_spec_io_v1alpha2_sets.NewTrafficTargetSet()
 	for _, set := range s.trafficTargets {
-		trafficTargetSet = trafficTargetSet.Union(set.Set())
+		for _, obj := range set.Set().UnsortedList() {
+			// redact secret data from the snapshot
+			obj := snapshotutils.RedactSecretData(obj)
+			trafficTargetSet.Insert(obj.(*access_smi_spec_io_v1alpha2.TrafficTarget))
+		}
 	}
 	snapshotMap["trafficTargets"] = trafficTargetSet.List()
 
 	hTTPRouteGroupSet := specs_smi_spec_io_v1alpha3_sets.NewHTTPRouteGroupSet()
 	for _, set := range s.hTTPRouteGroups {
-		hTTPRouteGroupSet = hTTPRouteGroupSet.Union(set.Set())
+		for _, obj := range set.Set().UnsortedList() {
+			// redact secret data from the snapshot
+			obj := snapshotutils.RedactSecretData(obj)
+			hTTPRouteGroupSet.Insert(obj.(*specs_smi_spec_io_v1alpha3.HTTPRouteGroup))
+		}
 	}
 	snapshotMap["hTTPRouteGroups"] = hTTPRouteGroupSet.List()
 
@@ -507,9 +533,13 @@ func (l labeledTrafficSplitSet) Generic() output.ResourceList {
 	}
 
 	return output.ResourceList{
-		Resources:    desiredResources,
-		ListFunc:     listFunc,
-		ResourceKind: "TrafficSplit",
+		Resources: desiredResources,
+		ListFunc:  listFunc,
+		GVK: schema.GroupVersionKind{
+			Group:   "split.smi-spec.io",
+			Version: "v1alpha2",
+			Kind:    "TrafficSplit",
+		},
 	}
 }
 
@@ -575,9 +605,13 @@ func (l labeledTrafficTargetSet) Generic() output.ResourceList {
 	}
 
 	return output.ResourceList{
-		Resources:    desiredResources,
-		ListFunc:     listFunc,
-		ResourceKind: "TrafficTarget",
+		Resources: desiredResources,
+		ListFunc:  listFunc,
+		GVK: schema.GroupVersionKind{
+			Group:   "access.smi-spec.io",
+			Version: "v1alpha2",
+			Kind:    "TrafficTarget",
+		},
 	}
 }
 
@@ -643,9 +677,13 @@ func (l labeledHTTPRouteGroupSet) Generic() output.ResourceList {
 	}
 
 	return output.ResourceList{
-		Resources:    desiredResources,
-		ListFunc:     listFunc,
-		ResourceKind: "HTTPRouteGroup",
+		Resources: desiredResources,
+		ListFunc:  listFunc,
+		GVK: schema.GroupVersionKind{
+			Group:   "specs.smi-spec.io",
+			Version: "v1alpha3",
+			Kind:    "HTTPRouteGroup",
+		},
 	}
 }
 

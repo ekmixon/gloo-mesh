@@ -1,10 +1,10 @@
 ---
-title: "Setup"
+title: Setting up Gloo Mesh Open Source
 menuTitle: Setup
-description: Setting up Gloo Mesh
+description: Set up Gloo Mesh Open Source
 weight: 30
 ---
 
-The following guides provide detailed instructions for getting Gloo Mesh up and running.
+Get your Gloo Mesh Open Source environment up and running.
 
 {{% children description="true" %}}

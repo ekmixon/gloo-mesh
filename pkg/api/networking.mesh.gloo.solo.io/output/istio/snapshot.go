@@ -10,6 +10,8 @@ import (
 	"encoding/json"
 	"sort"
 
+	snapshotutils "github.com/solo-io/skv2/contrib/pkg/snapshot"
+
 	"github.com/solo-io/skv2/pkg/multicluster"
 	"github.com/solo-io/skv2/pkg/resource"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -38,13 +40,12 @@ import (
 
 // this error can occur if constructing a Partitioned Snapshot from a resource
 // that is missing the partition label
-var MissingRequiredLabelError = func(labelKey, resourceKind string, obj ezkube.ResourceId) error {
-	return eris.Errorf("expected label %v not on labels of %v %v", labelKey, resourceKind, sets.Key(obj))
+var MissingRequiredLabelError = func(labelKey string, gvk schema.GroupVersionKind, obj ezkube.ResourceId) error {
+	return eris.Errorf("expected label %v not on labels of %v %v", labelKey, gvk.String(), sets.Key(obj))
 }
 
 // SnapshotGVKs is a list of the GVKs included in this snapshot
 var SnapshotGVKs = []schema.GroupVersionKind{
-
 	schema.GroupVersionKind{
 		Group:   "certificates.mesh.gloo.solo.io",
 		Version: "v1",
@@ -55,13 +56,11 @@ var SnapshotGVKs = []schema.GroupVersionKind{
 		Version: "v1",
 		Kind:    "PodBounceDirective",
 	},
-
 	schema.GroupVersionKind{
 		Group:   "xds.agent.enterprise.mesh.gloo.solo.io",
 		Version: "v1beta1",
 		Kind:    "XdsConfig",
 	},
-
 	schema.GroupVersionKind{
 		Group:   "networking.istio.io",
 		Version: "v1alpha3",
@@ -92,13 +91,11 @@ var SnapshotGVKs = []schema.GroupVersionKind{
 		Version: "v1alpha3",
 		Kind:    "Sidecar",
 	},
-
 	schema.GroupVersionKind{
 		Group:   "security.istio.io",
 		Version: "v1beta1",
 		Kind:    "AuthorizationPolicy",
 	},
-
 	schema.GroupVersionKind{
 		Group:   "ratelimit.solo.io",
 		Version: "v1alpha1",
@@ -133,10 +130,10 @@ type Snapshot interface {
 	RateLimitConfigs() []LabeledRateLimitConfigSet
 
 	// apply the snapshot to the local cluster, garbage collecting stale resources
-	ApplyLocalCluster(ctx context.Context, clusterClient client.Client, errHandler output.ErrorHandler)
+	ApplyLocalCluster(ctx context.Context, clusterClient client.Client, opts output.OutputOpts)
 
 	// apply resources from the snapshot across multiple clusters, garbage collecting stale resources
-	ApplyMultiCluster(ctx context.Context, multiClusterClient multicluster.Client, errHandler output.ErrorHandler)
+	ApplyMultiCluster(ctx context.Context, multiClusterClient multicluster.Client, opts output.OutputOpts)
 
 	// serialize the entire snapshot as JSON
 	MarshalJSON() ([]byte, error)
@@ -374,7 +371,7 @@ func NewSinglePartitionedSnapshot(
 }
 
 // apply the desired resources to the cluster state; remove stale resources where necessary
-func (s *snapshot) ApplyLocalCluster(ctx context.Context, cli client.Client, errHandler output.ErrorHandler) {
+func (s *snapshot) ApplyLocalCluster(ctx context.Context, clusterClient client.Client, opts output.OutputOpts) {
 	var genericLists []output.ResourceList
 
 	for _, outputSet := range s.issuedCertificates {
@@ -414,11 +411,11 @@ func (s *snapshot) ApplyLocalCluster(ctx context.Context, cli client.Client, err
 	output.Snapshot{
 		Name:        s.name,
 		ListsToSync: genericLists,
-	}.SyncLocalCluster(ctx, cli, errHandler)
+	}.SyncLocalCluster(ctx, clusterClient, opts)
 }
 
 // apply the desired resources to multiple cluster states; remove stale resources where necessary
-func (s *snapshot) ApplyMultiCluster(ctx context.Context, multiClusterClient multicluster.Client, errHandler output.ErrorHandler) {
+func (s *snapshot) ApplyMultiCluster(ctx context.Context, multiClusterClient multicluster.Client, opts output.OutputOpts) {
 	var genericLists []output.ResourceList
 
 	for _, outputSet := range s.issuedCertificates {
@@ -459,7 +456,7 @@ func (s *snapshot) ApplyMultiCluster(ctx context.Context, multiClusterClient mul
 		Name:        s.name,
 		Clusters:    s.clusters,
 		ListsToSync: genericLists,
-	}.SyncMultiCluster(ctx, multiClusterClient, errHandler)
+	}.SyncMultiCluster(ctx, multiClusterClient, opts)
 }
 
 func (s *snapshot) Generic() resource.ClusterSnapshot {
@@ -605,12 +602,17 @@ func partitionIssuedCertificatesByLabel(labelKey string, set certificates_mesh_g
 	setsByLabel := map[string]certificates_mesh_gloo_solo_io_v1_sets.IssuedCertificateSet{}
 
 	for _, obj := range set.List() {
+		objGVK := schema.GroupVersionKind{
+			Group:   "certificates.mesh.gloo.solo.io",
+			Version: "v1",
+			Kind:    "IssuedCertificate",
+		}
 		if obj.Labels == nil {
-			return nil, MissingRequiredLabelError(labelKey, "IssuedCertificate", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 		labelValue := obj.Labels[labelKey]
 		if labelValue == "" {
-			return nil, MissingRequiredLabelError(labelKey, "IssuedCertificate", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 
 		setForValue, ok := setsByLabel[labelValue]
@@ -649,12 +651,17 @@ func partitionPodBounceDirectivesByLabel(labelKey string, set certificates_mesh_
 	setsByLabel := map[string]certificates_mesh_gloo_solo_io_v1_sets.PodBounceDirectiveSet{}
 
 	for _, obj := range set.List() {
+		objGVK := schema.GroupVersionKind{
+			Group:   "certificates.mesh.gloo.solo.io",
+			Version: "v1",
+			Kind:    "PodBounceDirective",
+		}
 		if obj.Labels == nil {
-			return nil, MissingRequiredLabelError(labelKey, "PodBounceDirective", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 		labelValue := obj.Labels[labelKey]
 		if labelValue == "" {
-			return nil, MissingRequiredLabelError(labelKey, "PodBounceDirective", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 
 		setForValue, ok := setsByLabel[labelValue]
@@ -693,12 +700,17 @@ func partitionXdsConfigsByLabel(labelKey string, set xds_agent_enterprise_mesh_g
 	setsByLabel := map[string]xds_agent_enterprise_mesh_gloo_solo_io_v1beta1_sets.XdsConfigSet{}
 
 	for _, obj := range set.List() {
+		objGVK := schema.GroupVersionKind{
+			Group:   "xds.agent.enterprise.mesh.gloo.solo.io",
+			Version: "v1beta1",
+			Kind:    "XdsConfig",
+		}
 		if obj.Labels == nil {
-			return nil, MissingRequiredLabelError(labelKey, "XdsConfig", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 		labelValue := obj.Labels[labelKey]
 		if labelValue == "" {
-			return nil, MissingRequiredLabelError(labelKey, "XdsConfig", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 
 		setForValue, ok := setsByLabel[labelValue]
@@ -737,12 +749,17 @@ func partitionDestinationRulesByLabel(labelKey string, set networking_istio_io_v
 	setsByLabel := map[string]networking_istio_io_v1alpha3_sets.DestinationRuleSet{}
 
 	for _, obj := range set.List() {
+		objGVK := schema.GroupVersionKind{
+			Group:   "networking.istio.io",
+			Version: "v1alpha3",
+			Kind:    "DestinationRule",
+		}
 		if obj.Labels == nil {
-			return nil, MissingRequiredLabelError(labelKey, "DestinationRule", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 		labelValue := obj.Labels[labelKey]
 		if labelValue == "" {
-			return nil, MissingRequiredLabelError(labelKey, "DestinationRule", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 
 		setForValue, ok := setsByLabel[labelValue]
@@ -781,12 +798,17 @@ func partitionEnvoyFiltersByLabel(labelKey string, set networking_istio_io_v1alp
 	setsByLabel := map[string]networking_istio_io_v1alpha3_sets.EnvoyFilterSet{}
 
 	for _, obj := range set.List() {
+		objGVK := schema.GroupVersionKind{
+			Group:   "networking.istio.io",
+			Version: "v1alpha3",
+			Kind:    "EnvoyFilter",
+		}
 		if obj.Labels == nil {
-			return nil, MissingRequiredLabelError(labelKey, "EnvoyFilter", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 		labelValue := obj.Labels[labelKey]
 		if labelValue == "" {
-			return nil, MissingRequiredLabelError(labelKey, "EnvoyFilter", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 
 		setForValue, ok := setsByLabel[labelValue]
@@ -825,12 +847,17 @@ func partitionGatewaysByLabel(labelKey string, set networking_istio_io_v1alpha3_
 	setsByLabel := map[string]networking_istio_io_v1alpha3_sets.GatewaySet{}
 
 	for _, obj := range set.List() {
+		objGVK := schema.GroupVersionKind{
+			Group:   "networking.istio.io",
+			Version: "v1alpha3",
+			Kind:    "Gateway",
+		}
 		if obj.Labels == nil {
-			return nil, MissingRequiredLabelError(labelKey, "Gateway", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 		labelValue := obj.Labels[labelKey]
 		if labelValue == "" {
-			return nil, MissingRequiredLabelError(labelKey, "Gateway", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 
 		setForValue, ok := setsByLabel[labelValue]
@@ -869,12 +896,17 @@ func partitionServiceEntriesByLabel(labelKey string, set networking_istio_io_v1a
 	setsByLabel := map[string]networking_istio_io_v1alpha3_sets.ServiceEntrySet{}
 
 	for _, obj := range set.List() {
+		objGVK := schema.GroupVersionKind{
+			Group:   "networking.istio.io",
+			Version: "v1alpha3",
+			Kind:    "ServiceEntry",
+		}
 		if obj.Labels == nil {
-			return nil, MissingRequiredLabelError(labelKey, "ServiceEntry", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 		labelValue := obj.Labels[labelKey]
 		if labelValue == "" {
-			return nil, MissingRequiredLabelError(labelKey, "ServiceEntry", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 
 		setForValue, ok := setsByLabel[labelValue]
@@ -913,12 +945,17 @@ func partitionVirtualServicesByLabel(labelKey string, set networking_istio_io_v1
 	setsByLabel := map[string]networking_istio_io_v1alpha3_sets.VirtualServiceSet{}
 
 	for _, obj := range set.List() {
+		objGVK := schema.GroupVersionKind{
+			Group:   "networking.istio.io",
+			Version: "v1alpha3",
+			Kind:    "VirtualService",
+		}
 		if obj.Labels == nil {
-			return nil, MissingRequiredLabelError(labelKey, "VirtualService", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 		labelValue := obj.Labels[labelKey]
 		if labelValue == "" {
-			return nil, MissingRequiredLabelError(labelKey, "VirtualService", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 
 		setForValue, ok := setsByLabel[labelValue]
@@ -957,12 +994,17 @@ func partitionSidecarsByLabel(labelKey string, set networking_istio_io_v1alpha3_
 	setsByLabel := map[string]networking_istio_io_v1alpha3_sets.SidecarSet{}
 
 	for _, obj := range set.List() {
+		objGVK := schema.GroupVersionKind{
+			Group:   "networking.istio.io",
+			Version: "v1alpha3",
+			Kind:    "Sidecar",
+		}
 		if obj.Labels == nil {
-			return nil, MissingRequiredLabelError(labelKey, "Sidecar", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 		labelValue := obj.Labels[labelKey]
 		if labelValue == "" {
-			return nil, MissingRequiredLabelError(labelKey, "Sidecar", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 
 		setForValue, ok := setsByLabel[labelValue]
@@ -1001,12 +1043,17 @@ func partitionAuthorizationPoliciesByLabel(labelKey string, set security_istio_i
 	setsByLabel := map[string]security_istio_io_v1beta1_sets.AuthorizationPolicySet{}
 
 	for _, obj := range set.List() {
+		objGVK := schema.GroupVersionKind{
+			Group:   "security.istio.io",
+			Version: "v1beta1",
+			Kind:    "AuthorizationPolicy",
+		}
 		if obj.Labels == nil {
-			return nil, MissingRequiredLabelError(labelKey, "AuthorizationPolicy", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 		labelValue := obj.Labels[labelKey]
 		if labelValue == "" {
-			return nil, MissingRequiredLabelError(labelKey, "AuthorizationPolicy", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 
 		setForValue, ok := setsByLabel[labelValue]
@@ -1045,12 +1092,17 @@ func partitionRateLimitConfigsByLabel(labelKey string, set ratelimit_solo_io_v1a
 	setsByLabel := map[string]ratelimit_solo_io_v1alpha1_sets.RateLimitConfigSet{}
 
 	for _, obj := range set.List() {
+		objGVK := schema.GroupVersionKind{
+			Group:   "ratelimit.solo.io",
+			Version: "v1alpha1",
+			Kind:    "RateLimitConfig",
+		}
 		if obj.Labels == nil {
-			return nil, MissingRequiredLabelError(labelKey, "RateLimitConfig", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 		labelValue := obj.Labels[labelKey]
 		if labelValue == "" {
-			return nil, MissingRequiredLabelError(labelKey, "RateLimitConfig", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 
 		setForValue, ok := setsByLabel[labelValue]
@@ -1134,61 +1186,105 @@ func (s snapshot) MarshalJSON() ([]byte, error) {
 
 	issuedCertificateSet := certificates_mesh_gloo_solo_io_v1_sets.NewIssuedCertificateSet()
 	for _, set := range s.issuedCertificates {
-		issuedCertificateSet = issuedCertificateSet.Union(set.Set())
+		for _, obj := range set.Set().UnsortedList() {
+			// redact secret data from the snapshot
+			obj := snapshotutils.RedactSecretData(obj)
+			issuedCertificateSet.Insert(obj.(*certificates_mesh_gloo_solo_io_v1.IssuedCertificate))
+		}
 	}
 	snapshotMap["issuedCertificates"] = issuedCertificateSet.List()
 	podBounceDirectiveSet := certificates_mesh_gloo_solo_io_v1_sets.NewPodBounceDirectiveSet()
 	for _, set := range s.podBounceDirectives {
-		podBounceDirectiveSet = podBounceDirectiveSet.Union(set.Set())
+		for _, obj := range set.Set().UnsortedList() {
+			// redact secret data from the snapshot
+			obj := snapshotutils.RedactSecretData(obj)
+			podBounceDirectiveSet.Insert(obj.(*certificates_mesh_gloo_solo_io_v1.PodBounceDirective))
+		}
 	}
 	snapshotMap["podBounceDirectives"] = podBounceDirectiveSet.List()
 
 	xdsConfigSet := xds_agent_enterprise_mesh_gloo_solo_io_v1beta1_sets.NewXdsConfigSet()
 	for _, set := range s.xdsConfigs {
-		xdsConfigSet = xdsConfigSet.Union(set.Set())
+		for _, obj := range set.Set().UnsortedList() {
+			// redact secret data from the snapshot
+			obj := snapshotutils.RedactSecretData(obj)
+			xdsConfigSet.Insert(obj.(*xds_agent_enterprise_mesh_gloo_solo_io_v1beta1.XdsConfig))
+		}
 	}
 	snapshotMap["xdsConfigs"] = xdsConfigSet.List()
 
 	destinationRuleSet := networking_istio_io_v1alpha3_sets.NewDestinationRuleSet()
 	for _, set := range s.destinationRules {
-		destinationRuleSet = destinationRuleSet.Union(set.Set())
+		for _, obj := range set.Set().UnsortedList() {
+			// redact secret data from the snapshot
+			obj := snapshotutils.RedactSecretData(obj)
+			destinationRuleSet.Insert(obj.(*networking_istio_io_v1alpha3.DestinationRule))
+		}
 	}
 	snapshotMap["destinationRules"] = destinationRuleSet.List()
 	envoyFilterSet := networking_istio_io_v1alpha3_sets.NewEnvoyFilterSet()
 	for _, set := range s.envoyFilters {
-		envoyFilterSet = envoyFilterSet.Union(set.Set())
+		for _, obj := range set.Set().UnsortedList() {
+			// redact secret data from the snapshot
+			obj := snapshotutils.RedactSecretData(obj)
+			envoyFilterSet.Insert(obj.(*networking_istio_io_v1alpha3.EnvoyFilter))
+		}
 	}
 	snapshotMap["envoyFilters"] = envoyFilterSet.List()
 	gatewaySet := networking_istio_io_v1alpha3_sets.NewGatewaySet()
 	for _, set := range s.gateways {
-		gatewaySet = gatewaySet.Union(set.Set())
+		for _, obj := range set.Set().UnsortedList() {
+			// redact secret data from the snapshot
+			obj := snapshotutils.RedactSecretData(obj)
+			gatewaySet.Insert(obj.(*networking_istio_io_v1alpha3.Gateway))
+		}
 	}
 	snapshotMap["gateways"] = gatewaySet.List()
 	serviceEntrySet := networking_istio_io_v1alpha3_sets.NewServiceEntrySet()
 	for _, set := range s.serviceEntries {
-		serviceEntrySet = serviceEntrySet.Union(set.Set())
+		for _, obj := range set.Set().UnsortedList() {
+			// redact secret data from the snapshot
+			obj := snapshotutils.RedactSecretData(obj)
+			serviceEntrySet.Insert(obj.(*networking_istio_io_v1alpha3.ServiceEntry))
+		}
 	}
 	snapshotMap["serviceEntries"] = serviceEntrySet.List()
 	virtualServiceSet := networking_istio_io_v1alpha3_sets.NewVirtualServiceSet()
 	for _, set := range s.virtualServices {
-		virtualServiceSet = virtualServiceSet.Union(set.Set())
+		for _, obj := range set.Set().UnsortedList() {
+			// redact secret data from the snapshot
+			obj := snapshotutils.RedactSecretData(obj)
+			virtualServiceSet.Insert(obj.(*networking_istio_io_v1alpha3.VirtualService))
+		}
 	}
 	snapshotMap["virtualServices"] = virtualServiceSet.List()
 	sidecarSet := networking_istio_io_v1alpha3_sets.NewSidecarSet()
 	for _, set := range s.sidecars {
-		sidecarSet = sidecarSet.Union(set.Set())
+		for _, obj := range set.Set().UnsortedList() {
+			// redact secret data from the snapshot
+			obj := snapshotutils.RedactSecretData(obj)
+			sidecarSet.Insert(obj.(*networking_istio_io_v1alpha3.Sidecar))
+		}
 	}
 	snapshotMap["sidecars"] = sidecarSet.List()
 
 	authorizationPolicySet := security_istio_io_v1beta1_sets.NewAuthorizationPolicySet()
 	for _, set := range s.authorizationPolicies {
-		authorizationPolicySet = authorizationPolicySet.Union(set.Set())
+		for _, obj := range set.Set().UnsortedList() {
+			// redact secret data from the snapshot
+			obj := snapshotutils.RedactSecretData(obj)
+			authorizationPolicySet.Insert(obj.(*security_istio_io_v1beta1.AuthorizationPolicy))
+		}
 	}
 	snapshotMap["authorizationPolicies"] = authorizationPolicySet.List()
 
 	rateLimitConfigSet := ratelimit_solo_io_v1alpha1_sets.NewRateLimitConfigSet()
 	for _, set := range s.rateLimitConfigs {
-		rateLimitConfigSet = rateLimitConfigSet.Union(set.Set())
+		for _, obj := range set.Set().UnsortedList() {
+			// redact secret data from the snapshot
+			obj := snapshotutils.RedactSecretData(obj)
+			rateLimitConfigSet.Insert(obj.(*ratelimit_solo_io_v1alpha1.RateLimitConfig))
+		}
 	}
 	snapshotMap["rateLimitConfigs"] = rateLimitConfigSet.List()
 
@@ -1259,9 +1355,13 @@ func (l labeledIssuedCertificateSet) Generic() output.ResourceList {
 	}
 
 	return output.ResourceList{
-		Resources:    desiredResources,
-		ListFunc:     listFunc,
-		ResourceKind: "IssuedCertificate",
+		Resources: desiredResources,
+		ListFunc:  listFunc,
+		GVK: schema.GroupVersionKind{
+			Group:   "certificates.mesh.gloo.solo.io",
+			Version: "v1",
+			Kind:    "IssuedCertificate",
+		},
 	}
 }
 
@@ -1327,9 +1427,13 @@ func (l labeledPodBounceDirectiveSet) Generic() output.ResourceList {
 	}
 
 	return output.ResourceList{
-		Resources:    desiredResources,
-		ListFunc:     listFunc,
-		ResourceKind: "PodBounceDirective",
+		Resources: desiredResources,
+		ListFunc:  listFunc,
+		GVK: schema.GroupVersionKind{
+			Group:   "certificates.mesh.gloo.solo.io",
+			Version: "v1",
+			Kind:    "PodBounceDirective",
+		},
 	}
 }
 
@@ -1395,9 +1499,13 @@ func (l labeledXdsConfigSet) Generic() output.ResourceList {
 	}
 
 	return output.ResourceList{
-		Resources:    desiredResources,
-		ListFunc:     listFunc,
-		ResourceKind: "XdsConfig",
+		Resources: desiredResources,
+		ListFunc:  listFunc,
+		GVK: schema.GroupVersionKind{
+			Group:   "xds.agent.enterprise.mesh.gloo.solo.io",
+			Version: "v1beta1",
+			Kind:    "XdsConfig",
+		},
 	}
 }
 
@@ -1463,9 +1571,13 @@ func (l labeledDestinationRuleSet) Generic() output.ResourceList {
 	}
 
 	return output.ResourceList{
-		Resources:    desiredResources,
-		ListFunc:     listFunc,
-		ResourceKind: "DestinationRule",
+		Resources: desiredResources,
+		ListFunc:  listFunc,
+		GVK: schema.GroupVersionKind{
+			Group:   "networking.istio.io",
+			Version: "v1alpha3",
+			Kind:    "DestinationRule",
+		},
 	}
 }
 
@@ -1531,9 +1643,13 @@ func (l labeledEnvoyFilterSet) Generic() output.ResourceList {
 	}
 
 	return output.ResourceList{
-		Resources:    desiredResources,
-		ListFunc:     listFunc,
-		ResourceKind: "EnvoyFilter",
+		Resources: desiredResources,
+		ListFunc:  listFunc,
+		GVK: schema.GroupVersionKind{
+			Group:   "networking.istio.io",
+			Version: "v1alpha3",
+			Kind:    "EnvoyFilter",
+		},
 	}
 }
 
@@ -1599,9 +1715,13 @@ func (l labeledGatewaySet) Generic() output.ResourceList {
 	}
 
 	return output.ResourceList{
-		Resources:    desiredResources,
-		ListFunc:     listFunc,
-		ResourceKind: "Gateway",
+		Resources: desiredResources,
+		ListFunc:  listFunc,
+		GVK: schema.GroupVersionKind{
+			Group:   "networking.istio.io",
+			Version: "v1alpha3",
+			Kind:    "Gateway",
+		},
 	}
 }
 
@@ -1667,9 +1787,13 @@ func (l labeledServiceEntrySet) Generic() output.ResourceList {
 	}
 
 	return output.ResourceList{
-		Resources:    desiredResources,
-		ListFunc:     listFunc,
-		ResourceKind: "ServiceEntry",
+		Resources: desiredResources,
+		ListFunc:  listFunc,
+		GVK: schema.GroupVersionKind{
+			Group:   "networking.istio.io",
+			Version: "v1alpha3",
+			Kind:    "ServiceEntry",
+		},
 	}
 }
 
@@ -1735,9 +1859,13 @@ func (l labeledVirtualServiceSet) Generic() output.ResourceList {
 	}
 
 	return output.ResourceList{
-		Resources:    desiredResources,
-		ListFunc:     listFunc,
-		ResourceKind: "VirtualService",
+		Resources: desiredResources,
+		ListFunc:  listFunc,
+		GVK: schema.GroupVersionKind{
+			Group:   "networking.istio.io",
+			Version: "v1alpha3",
+			Kind:    "VirtualService",
+		},
 	}
 }
 
@@ -1803,9 +1931,13 @@ func (l labeledSidecarSet) Generic() output.ResourceList {
 	}
 
 	return output.ResourceList{
-		Resources:    desiredResources,
-		ListFunc:     listFunc,
-		ResourceKind: "Sidecar",
+		Resources: desiredResources,
+		ListFunc:  listFunc,
+		GVK: schema.GroupVersionKind{
+			Group:   "networking.istio.io",
+			Version: "v1alpha3",
+			Kind:    "Sidecar",
+		},
 	}
 }
 
@@ -1871,9 +2003,13 @@ func (l labeledAuthorizationPolicySet) Generic() output.ResourceList {
 	}
 
 	return output.ResourceList{
-		Resources:    desiredResources,
-		ListFunc:     listFunc,
-		ResourceKind: "AuthorizationPolicy",
+		Resources: desiredResources,
+		ListFunc:  listFunc,
+		GVK: schema.GroupVersionKind{
+			Group:   "security.istio.io",
+			Version: "v1beta1",
+			Kind:    "AuthorizationPolicy",
+		},
 	}
 }
 
@@ -1939,9 +2075,13 @@ func (l labeledRateLimitConfigSet) Generic() output.ResourceList {
 	}
 
 	return output.ResourceList{
-		Resources:    desiredResources,
-		ListFunc:     listFunc,
-		ResourceKind: "RateLimitConfig",
+		Resources: desiredResources,
+		ListFunc:  listFunc,
+		GVK: schema.GroupVersionKind{
+			Group:   "ratelimit.solo.io",
+			Version: "v1alpha1",
+			Kind:    "RateLimitConfig",
+		},
 	}
 }
 

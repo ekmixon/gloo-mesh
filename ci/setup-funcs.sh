@@ -390,7 +390,7 @@ spec:
 EOF
 }
 
-# Operator spec for istio 1.8.x, 1.9.x, and 1.10x
+# Operator spec for istio 1.8.x - 1.11.x
 function install_istio_1_8() {
   cluster=$1
   eastWestIngressPort=$2
@@ -408,7 +408,7 @@ metadata:
   namespace: istio-system
 spec:
   hub: gcr.io/istio-release
-  profile: preview
+  profile: minimal
   revision: ${istioRevision}
   meshConfig:
     enableAutoMtls: true
@@ -522,6 +522,9 @@ function install_istio() {
   elif istioctl version | grep -E -- '1.10'
   then
     install_istio_1_8 $cluster $eastWestIngressPort $istioRevision
+  elif istioctl version | grep -E -- '1.11'
+  then
+    install_istio_1_8 $cluster $eastWestIngressPort $istioRevision
   else
     echo "Encountered unsupported version of Istio: $(istioctl version)"
     exit 1
@@ -628,12 +631,11 @@ function register_cluster() {
   # load cert-agent image
   kind load docker-image --name "${cluster}" "${AGENT_IMAGE}"
 
-  go run "${PROJECT_ROOT}/cmd/meshctl/main.go" cluster register community "${cluster}" \
-    --mgmt-context "kind-${mgmtCluster}" \
-    --remote-context "kind-${cluster}" \
+  go run "${PROJECT_ROOT}/cmd/meshctl/main.go" register "${cluster}" "kind-${cluster}" \
+    --context "kind-${mgmtCluster}" \
     --api-server-address "${apiServerAddress}" \
-    --cert-agent-chart-file "${AGENT_CHART}" \
-    --agent-crds-chart-file "${AGENT_CRDS_CHART}" ``
+    --agent-chart "${AGENT_CHART}" \
+    --agent-crds-chart "${AGENT_CRDS_CHART}" ``
 }
 
 function install_gloomesh() {

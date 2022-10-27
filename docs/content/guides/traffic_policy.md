@@ -1,7 +1,7 @@
 ---
-title: Configuring a Traffic Policy
-menuTitle: Traffic Policy
-weight: 25
+title: Traffic policies
+menuTitle: Configure and manage traffic policies across multiple clusters
+weight: 20
 ---
 
 Gloo Mesh can manage and configure multiple service meshes across multiple Kubernetes clusters. Gloo Mesh can control the configuration of traffic policies of associated services from a given mesh, including properties like timeouts, retries, CORS, and header manipulation.

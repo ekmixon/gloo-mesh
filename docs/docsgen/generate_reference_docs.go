@@ -31,19 +31,19 @@ var (
 	moduleRoot = util.GetModuleRoot()
 	cliIndex   = `
 ---
-title: "Command-Line Reference"
+title: "CLI reference"
 description: | 
   Detailed descriptions and options for working with the Gloo Mesh CLI. 
 weight: 2
 ---
-This section contains generated reference documentation for the ` + "`" + `Gloo Mesh` + "`" + ` CLI.
+This section contains generated reference documentation for the Gloo Mesh CLI, meshctl. To install the CLI, see [meshctl CLI]({{< versioned_link_path fromRoot="/setup/meshctl_cli_install/" >}}).
 `
 	changelogIndex = `
 ---
 title: "Changelog"
 description: | 
   Section containing Changelogs for Gloo Mesh
-weight: 6
+weight: 2
 ---
 Included in the sections below are Changelog for both Gloo Mesh OSS and Gloo Mesh Enterprise.
 {{% children description="true" %}}
@@ -101,11 +101,6 @@ func Execute(opts Options) error {
 	client, err := githubutils.GetClient(context.Background())
 	if err != nil {
 		return eris.Errorf("error initializing Github client: %v", err)
-	}
-
-	// fetch Helm values docs from Gloo Mesh Enterprise
-	if err = copyHelmValuesDocsForAllCharts(client, rootDir); err != nil {
-		return err
 	}
 
 	// generate changelog documentation

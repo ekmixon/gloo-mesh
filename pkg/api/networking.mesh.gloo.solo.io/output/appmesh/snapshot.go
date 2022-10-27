@@ -10,6 +10,8 @@ import (
 	"encoding/json"
 	"sort"
 
+	snapshotutils "github.com/solo-io/skv2/contrib/pkg/snapshot"
+
 	"github.com/solo-io/skv2/pkg/multicluster"
 	"github.com/solo-io/skv2/pkg/resource"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -26,13 +28,12 @@ import (
 
 // this error can occur if constructing a Partitioned Snapshot from a resource
 // that is missing the partition label
-var MissingRequiredLabelError = func(labelKey, resourceKind string, obj ezkube.ResourceId) error {
-	return eris.Errorf("expected label %v not on labels of %v %v", labelKey, resourceKind, sets.Key(obj))
+var MissingRequiredLabelError = func(labelKey string, gvk schema.GroupVersionKind, obj ezkube.ResourceId) error {
+	return eris.Errorf("expected label %v not on labels of %v %v", labelKey, gvk.String(), sets.Key(obj))
 }
 
 // SnapshotGVKs is a list of the GVKs included in this snapshot
 var SnapshotGVKs = []schema.GroupVersionKind{
-
 	schema.GroupVersionKind{
 		Group:   "appmesh.k8s.aws",
 		Version: "v1beta2",
@@ -61,10 +62,10 @@ type Snapshot interface {
 	VirtualRouters() []LabeledVirtualRouterSet
 
 	// apply the snapshot to the local cluster, garbage collecting stale resources
-	ApplyLocalCluster(ctx context.Context, clusterClient client.Client, errHandler output.ErrorHandler)
+	ApplyLocalCluster(ctx context.Context, clusterClient client.Client, opts output.OutputOpts)
 
 	// apply resources from the snapshot across multiple clusters, garbage collecting stale resources
-	ApplyMultiCluster(ctx context.Context, multiClusterClient multicluster.Client, errHandler output.ErrorHandler)
+	ApplyMultiCluster(ctx context.Context, multiClusterClient multicluster.Client, opts output.OutputOpts)
 
 	// serialize the entire snapshot as JSON
 	MarshalJSON() ([]byte, error)
@@ -174,7 +175,7 @@ func NewSinglePartitionedSnapshot(
 }
 
 // apply the desired resources to the cluster state; remove stale resources where necessary
-func (s *snapshot) ApplyLocalCluster(ctx context.Context, cli client.Client, errHandler output.ErrorHandler) {
+func (s *snapshot) ApplyLocalCluster(ctx context.Context, clusterClient client.Client, opts output.OutputOpts) {
 	var genericLists []output.ResourceList
 
 	for _, outputSet := range s.virtualServices {
@@ -190,11 +191,11 @@ func (s *snapshot) ApplyLocalCluster(ctx context.Context, cli client.Client, err
 	output.Snapshot{
 		Name:        s.name,
 		ListsToSync: genericLists,
-	}.SyncLocalCluster(ctx, cli, errHandler)
+	}.SyncLocalCluster(ctx, clusterClient, opts)
 }
 
 // apply the desired resources to multiple cluster states; remove stale resources where necessary
-func (s *snapshot) ApplyMultiCluster(ctx context.Context, multiClusterClient multicluster.Client, errHandler output.ErrorHandler) {
+func (s *snapshot) ApplyMultiCluster(ctx context.Context, multiClusterClient multicluster.Client, opts output.OutputOpts) {
 	var genericLists []output.ResourceList
 
 	for _, outputSet := range s.virtualServices {
@@ -211,7 +212,7 @@ func (s *snapshot) ApplyMultiCluster(ctx context.Context, multiClusterClient mul
 		Name:        s.name,
 		Clusters:    s.clusters,
 		ListsToSync: genericLists,
-	}.SyncMultiCluster(ctx, multiClusterClient, errHandler)
+	}.SyncMultiCluster(ctx, multiClusterClient, opts)
 }
 
 func (s *snapshot) Generic() resource.ClusterSnapshot {
@@ -265,12 +266,17 @@ func partitionVirtualServicesByLabel(labelKey string, set appmesh_k8s_aws_v1beta
 	setsByLabel := map[string]appmesh_k8s_aws_v1beta2_sets.VirtualServiceSet{}
 
 	for _, obj := range set.List() {
+		objGVK := schema.GroupVersionKind{
+			Group:   "appmesh.k8s.aws",
+			Version: "v1beta2",
+			Kind:    "VirtualService",
+		}
 		if obj.Labels == nil {
-			return nil, MissingRequiredLabelError(labelKey, "VirtualService", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 		labelValue := obj.Labels[labelKey]
 		if labelValue == "" {
-			return nil, MissingRequiredLabelError(labelKey, "VirtualService", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 
 		setForValue, ok := setsByLabel[labelValue]
@@ -309,12 +315,17 @@ func partitionVirtualNodesByLabel(labelKey string, set appmesh_k8s_aws_v1beta2_s
 	setsByLabel := map[string]appmesh_k8s_aws_v1beta2_sets.VirtualNodeSet{}
 
 	for _, obj := range set.List() {
+		objGVK := schema.GroupVersionKind{
+			Group:   "appmesh.k8s.aws",
+			Version: "v1beta2",
+			Kind:    "VirtualNode",
+		}
 		if obj.Labels == nil {
-			return nil, MissingRequiredLabelError(labelKey, "VirtualNode", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 		labelValue := obj.Labels[labelKey]
 		if labelValue == "" {
-			return nil, MissingRequiredLabelError(labelKey, "VirtualNode", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 
 		setForValue, ok := setsByLabel[labelValue]
@@ -353,12 +364,17 @@ func partitionVirtualRoutersByLabel(labelKey string, set appmesh_k8s_aws_v1beta2
 	setsByLabel := map[string]appmesh_k8s_aws_v1beta2_sets.VirtualRouterSet{}
 
 	for _, obj := range set.List() {
+		objGVK := schema.GroupVersionKind{
+			Group:   "appmesh.k8s.aws",
+			Version: "v1beta2",
+			Kind:    "VirtualRouter",
+		}
 		if obj.Labels == nil {
-			return nil, MissingRequiredLabelError(labelKey, "VirtualRouter", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 		labelValue := obj.Labels[labelKey]
 		if labelValue == "" {
-			return nil, MissingRequiredLabelError(labelKey, "VirtualRouter", obj)
+			return nil, MissingRequiredLabelError(labelKey, objGVK, obj)
 		}
 
 		setForValue, ok := setsByLabel[labelValue]
@@ -410,17 +426,29 @@ func (s snapshot) MarshalJSON() ([]byte, error) {
 
 	virtualServiceSet := appmesh_k8s_aws_v1beta2_sets.NewVirtualServiceSet()
 	for _, set := range s.virtualServices {
-		virtualServiceSet = virtualServiceSet.Union(set.Set())
+		for _, obj := range set.Set().UnsortedList() {
+			// redact secret data from the snapshot
+			obj := snapshotutils.RedactSecretData(obj)
+			virtualServiceSet.Insert(obj.(*appmesh_k8s_aws_v1beta2.VirtualService))
+		}
 	}
 	snapshotMap["virtualServices"] = virtualServiceSet.List()
 	virtualNodeSet := appmesh_k8s_aws_v1beta2_sets.NewVirtualNodeSet()
 	for _, set := range s.virtualNodes {
-		virtualNodeSet = virtualNodeSet.Union(set.Set())
+		for _, obj := range set.Set().UnsortedList() {
+			// redact secret data from the snapshot
+			obj := snapshotutils.RedactSecretData(obj)
+			virtualNodeSet.Insert(obj.(*appmesh_k8s_aws_v1beta2.VirtualNode))
+		}
 	}
 	snapshotMap["virtualNodes"] = virtualNodeSet.List()
 	virtualRouterSet := appmesh_k8s_aws_v1beta2_sets.NewVirtualRouterSet()
 	for _, set := range s.virtualRouters {
-		virtualRouterSet = virtualRouterSet.Union(set.Set())
+		for _, obj := range set.Set().UnsortedList() {
+			// redact secret data from the snapshot
+			obj := snapshotutils.RedactSecretData(obj)
+			virtualRouterSet.Insert(obj.(*appmesh_k8s_aws_v1beta2.VirtualRouter))
+		}
 	}
 	snapshotMap["virtualRouters"] = virtualRouterSet.List()
 
@@ -491,9 +519,13 @@ func (l labeledVirtualServiceSet) Generic() output.ResourceList {
 	}
 
 	return output.ResourceList{
-		Resources:    desiredResources,
-		ListFunc:     listFunc,
-		ResourceKind: "VirtualService",
+		Resources: desiredResources,
+		ListFunc:  listFunc,
+		GVK: schema.GroupVersionKind{
+			Group:   "appmesh.k8s.aws",
+			Version: "v1beta2",
+			Kind:    "VirtualService",
+		},
 	}
 }
 
@@ -559,9 +591,13 @@ func (l labeledVirtualNodeSet) Generic() output.ResourceList {
 	}
 
 	return output.ResourceList{
-		Resources:    desiredResources,
-		ListFunc:     listFunc,
-		ResourceKind: "VirtualNode",
+		Resources: desiredResources,
+		ListFunc:  listFunc,
+		GVK: schema.GroupVersionKind{
+			Group:   "appmesh.k8s.aws",
+			Version: "v1beta2",
+			Kind:    "VirtualNode",
+		},
 	}
 }
 
@@ -627,9 +663,13 @@ func (l labeledVirtualRouterSet) Generic() output.ResourceList {
 	}
 
 	return output.ResourceList{
-		Resources:    desiredResources,
-		ListFunc:     listFunc,
-		ResourceKind: "VirtualRouter",
+		Resources: desiredResources,
+		ListFunc:  listFunc,
+		GVK: schema.GroupVersionKind{
+			Group:   "appmesh.k8s.aws",
+			Version: "v1beta2",
+			Kind:    "VirtualRouter",
+		},
 	}
 }
 

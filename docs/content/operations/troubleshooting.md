@@ -1,8 +1,7 @@
 ---
 title: Troubleshooting
-menuTitle: Troubleshooting
 weight: 10
-description: Understanding how to troubleshoot Gloo Mesh with tips on logging, FAQ, and understanding how things work
+description: Troubleshoot your Gloo Mesh setup by using logs, debugging guides, and more
 ---
 
 In this guide we explore how to troubleshoot when things don't behave the way you're expecting. We also try to explain how things work under the covers so you can use your own troubleshooting skills to find why things may not behave as expected. We would love to hear from you if you if you get stuck on the [Solo.io Slack](https://slack.solo.io) or if you figure out how to solve something not covered here, please consider a [Pull Request to the docs](https://github.com/solo-io/gloo-mesh/tree/main/docs) to add it.
@@ -14,9 +13,9 @@ So you've created some `TrafficPolicy` rules or just grouped your first `Virtual
 One of the first places to always start is `meshctl check`. This command is your friend. Here's what it does:
 
 * Test [connectivity to the Kubernetes cluster](https://github.com/solo-io/gloo-mesh/blob/master/cli/pkg/tree/check/healthcheck/internal/kube_connectivity_check.go#L20)
-* Checking the [minimum supported Kubernetes minor version](https://github.com/solo-io/gloo-mesh/blob/master/pkg/version/version.go#L13)
-* Checking that the `install` [namespace exists (default, `gloo-mesh`)](https://github.com/solo-io/gloo-mesh/blob/master/cli/pkg/tree/check/healthcheck/internal/install_namespace_existence.go#L23)
-* Verifying the Gloo Mesh components [are installed and running](https://github.com/solo-io/gloo-mesh/blob/master/cli/pkg/tree/check/healthcheck/internal/gloomesh_components_health.go#L36)
+* Checking the [minimum supported Kubernetes minor version](https://github.com/solo-io/gloo-mesh/blob/master/pkg/common/container-runtime/version/version.go#L13)
+* Checking that the `install` [namespace exists (default, `gloo-mesh`)](https://github.com/solo-io/gloo-mesh/blob/master/cli/pkg/tree/check/healthcheck/internal/install_namespace_existence.go#L21)
+* Verifying the Gloo Mesh components [are installed and running](https://github.com/solo-io/gloo-mesh/blob/master/cli/pkg/tree/check/healthcheck/internal/smh_components_health.go#L36)
 * Verify none of the `Destinations` have [any federation errors](https://github.com/solo-io/gloo-mesh/blob/master/cli/pkg/tree/check/healthcheck/internal/federation_decision_check.go#L43)
 
 The last bullet in the list, checking federation status, is likely the most helpful especially after you've tried to apply a `VirtualMesh`. Often it's best to check the `VirtualMesh` CR `status` field to make sure it doesn't see any issues:

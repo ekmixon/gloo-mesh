@@ -1,47 +1,51 @@
 ---
 weight: 99
-title: Gloo Mesh
+title: Gloo Mesh Open Source
 ---
 
-# A Multi Mesh Management Tool
+# Gloo Mesh Open Source
 
-## What is Gloo Mesh
+Welcome to Gloo Mesh, the open-source, multicluster, multimesh management plane. Gloo Mesh simplifies service mesh operations and lets you manage service meshes across multiple clusters from a centralized management plane.
 
-Gloo Mesh is a Kubernetes-native **management plane** that enables configuration 
-and operational management of multiple heterogeneous service meshes across multiple 
-clusters through a unified API. The Gloo Mesh API integrates with the leading 
-service meshes and abstracts away differences between their disparate APIs, allowing 
-users to configure a set of different service meshes through a single API. Gloo 
-Mesh is engineered with a focus on its utility as an operational management 
-tool, providing both graphical and command line UIs, observability features, and 
-debugging tools.
+{{% notice tip %}}
+{{< readfile file="static/content/try_gme" markdown="true">}}
+{{% /notice %}}
 
+## What is Gloo Mesh?
 
-<figure>
-    <img src="{{% versioned_link_path fromRoot="/img/gloomesh-diagram.png" %}}"/>
-</figure>
+{{<excerpt-include filename="concepts/about.md" panel="From the About page" />}}
 
+For more information about benefits and use cases, see the [About page]({{< versioned_link_path fromRoot="/concepts/about/" >}}).
 
-### Getting to know Gloo Mesh
+## Video: Gloo Mesh demo
 
-![Gloo Mesh Architecture]({{% versioned_link_path fromRoot="/img/gloomesh-3clusters.png" %}})
+<iframe width="560" height="315" src="https://www.youtube.com/embed/NHYb_RlmyrA" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
-Gloo Mesh can be run in its own cluster (or co-located with an existing mesh) and remotely operates and drives the configuration for specific service-mesh control planes. This allows Gloo Mesh to discover meshes/workloads, establish federated identity, enable global traffic routing and load balancing, access control policy, centralized observability and more. We walk through each of these components in the following videos:
+## Contributing
 
-### Videos: Take a dive into Gloo Mesh
+Thank you for your interest in giving back to the open source community. Gloo Mesh Open Source would not be possible without the valuable work of projects in the community, especially Envoy, Kubernetes, and Istio! To get started with contributing to code, documentation, and mode, see the [contributing guidelines]({{% versioned_link_path fromRoot="/contributing/" %}}).
 
-We've put together [a handful of videos](https://www.youtube.com/watch?v=4sWikVELr5M&list=PLBOtlFtGznBjr4E9xYHH9eVyiOwnk1ciK) detailing the features of Gloo Mesh.
+## More resources
 
-## Contribution
-There are many ways to get involved in an open source community and contribute to the project. Watch [this talk](https://www.youtube.com/watch?v=VE-igex6Lz4) to learn more about the architecture and how it works. 
-- **Code:** If you're looking to hack on service mesh, check out the code and the contribution guide [here](https://docs.solo.io/gloo-mesh/latest/contributing/) and look for the *good first issue* and *help wanted* labels in the GitHub issues. 
- - **Docs:** Contribute to the [Docs](docs/) or file issues for any docs bugs or requests [here](https://github.com/solo-io/gloo-mesh/issues). 
- - **Talks and Blogs:** If you are interested in writing or speaking about Gloo Mesh and would like access to content, images or help, [DM us here](https://solo-io.slack.com). Share your demos, tutorials and content back to the community.
+Want more hands-on experience with Gloo Mesh?
+* Try out one of the Gloo Mesh [workshops](https://workshops.solo.io/gloo-workshops/).
+* Attend one of our [virtual, live events](https://www.solo.io/events-webinars/).
+* Learn more about Gloo Mesh in the [website](https://www.solo.io/products/gloo-mesh/), [blog](https://www.solo.io/blog/), and in the [docs](https://docs.solo.io/gloo-mesh/latest).
 
-## Questions and Resources
-If you have questions, please join the [#Gloo-Mesh channel](https://solo-io.slack.com/archives/CJQGK5TQ8) in the community slack. More information is available on the [website](https://www.solo.io/products/gloo-mesh/) and in the [docs](https://docs.solo.io/gloo-mesh/latest) 
-- Learn more about [Open Source at Solo.io](https://www.solo.io/open-source/)
-- Follow us on Twitter [@soloio_inc](https://twitter.com/soloio_inc)
+<br>
 
-## Thanks
-Gloo Mesh  would not be possible without the valuable open-source work of projects in the community.
+Interested in the latest Gloo Mesh news?
+* [Join the Slack #gloo-mesh channel](https://solo-io.slack.com/archives/CJQGK5TQ8)
+* [Follow Solo on Twitter](https://twitter.com/soloio_inc)
+
+<br>
+
+Need an Enterprise trial license or advice on how to get started?
+* [Talk to an expert](https://www.solo.io/company/talk-to-an-expert/)
+* [Try out a workshop](https://workshops.solo.io/gloo-workshops/)
+
+<br>
+
+Ready to get more involved with Solo?
+* [Contribute to an open source project](https://www.solo.io/open-source/)
+* [Come work with us!](https://www.solo.io/company/careers/)
