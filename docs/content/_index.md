@@ -32,19 +32,13 @@ Want more hands-on experience with Gloo Mesh?
 * Attend one of our [virtual, live events](https://www.solo.io/events-webinars/).
 * Learn more about Gloo Mesh in the [website](https://www.solo.io/products/gloo-mesh/), [blog](https://www.solo.io/blog/), and in the [docs](https://docs.solo.io/gloo-mesh/latest).
 
-<br>
-
 Interested in the latest Gloo Mesh news?
 * [Join the Slack #gloo-mesh channel](https://solo-io.slack.com/archives/CJQGK5TQ8)
 * [Follow Solo on Twitter](https://twitter.com/soloio_inc)
 
-<br>
-
 Need an Enterprise trial license or advice on how to get started?
 * [Talk to an expert](https://www.solo.io/company/talk-to-an-expert/)
 * [Try out a workshop](https://workshops.solo.io/gloo-workshops/)
-
-<br>
 
 Ready to get more involved with Solo?
 * [Contribute to an open source project](https://www.solo.io/open-source/)
