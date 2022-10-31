@@ -5,7 +5,7 @@ title: Gloo Mesh Open Source
 
 # Gloo Mesh Open Source
 
-Welcome to Gloo Mesh, the open-source, multicluster, multimesh management plane. Gloo Mesh simplifies service mesh operations and lets you manage service meshes across multiple clusters from a centralized management plane.
+Welcome to Gloo Mesh, the open-source, multicluster, multimesh management plane. With Gloo Mesh, you can secure external and internal networking traffic to your applications across clusters from a centralized management plane.
 
 {{% notice tip %}}
 {{< readfile file="static/content/try_gme" markdown="true">}}
