@@ -18,8 +18,8 @@ Use `meshctl` to install the Gloo Mesh management components into a cluster. The
 ## Before you begin
 
 * Install the following CLI tools:
-  * [`meshctl`]({{< versioned_link_path fromRoot="/setup/meshctl_cli_install/" >}}), the Gloo Mesh command line tool for bootstrapping Gloo Mesh, registering clusters, describing configured resources, and more.
-  * [`kubectl`](https://kubernetes.io/docs/tasks/tools/#kubectl), the Kubernetes command line tool. Download the `kubectl` version that is within one minor version of your Kubernetes cluster.
+  * [`meshctl`]({{< versioned_link_path fromRoot="/setup/meshctl_cli_install/" >}}), the Gloo Mesh command line tool. Make sure that the CLI version matches the version that you want to install, such as **{{< readfile file="static/content/gmoss_latest_version.txt" markdown="true">}}**.
+  * [`kubectl`](https://kubernetes.io/docs/tasks/tools/#kubectl), the Kubernetes command line tool. Download the `kubectl` version that is within one minor version of your Kubernetes cluster. Note that the Gloo Mesh open source project supports [Kubernetes version 1.16 - 1.21]({{< versioned_link_path fromRoot="/reference/version/versions/ >}}).
 * [Prepare at least two clusters]({{< versioned_link_path fromRoot="/setup/kind_setup/" >}}) for your Gloo Mesh setup.
 * Save the context for your management cluster in an environment variable, and set the context to the management cluster.
   ```shell

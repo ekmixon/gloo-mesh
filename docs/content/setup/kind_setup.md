@@ -7,7 +7,7 @@ weight: 20
 
 Choose existing clusters or deploy clusters locally for your Gloo Mesh setup, and set the contexts for your clusters. For example, you can use a managed Kubernetes environment, such as clusters in Google Kubernetes Engine (GKE) or Amazon Elastic Kubernetes Service (EKS). Alternatively, you can deploy two local clusters by using Kubernetes in Docker (Kind). 
 
-## Using managed clusters
+## Use managed clusters
 
 Choose or create two clusters.
 
@@ -19,15 +19,17 @@ export REMOTE_CLUSTER=cluster-2
 export REMOTE_CONTEXT=<remote-cluster-context>
 ```
 
-## Deploying clusters locally with Kind
+## Before you begin
 
-Deploy two local clusters by using Kubernetes in Docker (Kind). Note that the clusters use a significant amount of RAM to run Istio and Gloo Mesh, so use a workstation that has a minimum of 16GB of memory.
-
-**Before you begin**, install the following tools:
+Install the following tools:
 
 * [Docker Desktop](https://www.docker.com/products/docker-desktop). In **Preferences > Resources > Advanced**, ensure that [at least 10 CPUs and 8 GB of memory are available](https://kind.sigs.k8s.io/docs/user/quick-start/#settings-for-docker-desktop).
 * [`kind`](https://kind.sigs.k8s.io/docs/user/quick-start#installation), a tool for running local Kubernetes clusters by using Docker containers.
-* [`kubectl`](https://kubernetes.io/docs/tasks/tools/#kubectl), the Kubernetes command line tool. Download the `kubectl` version that is within one minor version of your Kubernetes cluster. For example, this demo environment creates clusters that run Kubernetes version 1.21.2.
+* [`kubectl`](https://kubernetes.io/docs/tasks/tools/#kubectl), the Kubernetes command line tool. Download the `kubectl` version that is within one minor version of your Kubernetes cluster. For example, this demo environment creates clusters that run **Kubernetes version 1.21.2**. Note that the Gloo Mesh open source project supports [Kubernetes version 1.16 - 1.21]({{< versioned_link_path fromRoot="/reference/version/versions/ >}}).
+
+## Deploy clusters locally with Kind
+
+Deploy two local clusters by using Kubernetes in Docker (Kind). Note that the clusters use a significant amount of RAM to run Istio and Gloo Mesh, so use a workstation that has a minimum of 16GB of memory.
 
 1. Create `cluster-1`, which will serve as both the _management cluster_ and a _remote cluster_ to be managed by Gloo Mesh in this setup.
    ```shell

@@ -22,7 +22,7 @@ You can pass a variable on the command line to download a specific version of `m
 1.  Go the [Gloo Mesh releases GitHub page](https://github.com/solo-io/gloo-mesh/releases) and find the release version that you want to install.
 2.  Export the release version as a variable in your command line.
     ```shell
-    export GLOO_MESH_VERSION=v1.x.x
+    export GLOO_MESH_VERSION=v{{< readfile file="static/content/gmoss_latest_version.txt" markdown="true">}}
     ```
 3.  Install the `meshctl` CLI.
     ```shell
